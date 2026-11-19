@@ -1,0 +1,28 @@
+services:
+  - type: worker
+    name: sollaner-rewards
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    disk:
+      name: sollaner-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: DB_PATH
+        value: /opt/render/project/src/data/sollaner.sqlite3
+      - key: POINTS_PER_MESSAGE
+        value: "1"
+      - key: MESSAGE_COOLDOWN
+        value: "60"
+      - key: DAILY_LIMIT
+        value: "20"
+      - key: DAILY_BONUS
+        value: "3"
+      - key: REWARD_COST
+        value: "100"
