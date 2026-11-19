@@ -1,2 +1,1 @@
-aiogram>=3.13,<4.0
-aiosqlite>=0.20,<1.0
+aiogram>=3.13,<4.0\naiosqlite>=0.20,<1.0\naiohttp>=3.9,<4.0\n

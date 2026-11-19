@@ -1,21 +1,19 @@
 services:
-  - type: worker
+  - type: web
     name: sollaner-rewards
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
-    disk:
-      name: sollaner-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
     envVars:
       - key: BOT_TOKEN
         sync: false
       - key: ADMIN_IDS
         sync: false
+      - key: WEBHOOK_SECRET
+        generateValue: true
       - key: DB_PATH
-        value: /opt/render/project/src/data/sollaner.sqlite3
+        value: data/sollaner.sqlite3
       - key: POINTS_PER_MESSAGE
         value: "1"
       - key: MESSAGE_COOLDOWN

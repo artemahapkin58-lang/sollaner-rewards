@@ -265,14 +265,60 @@ async def activity(message: Message):
         """, (POINTS_PER_MESSAGE, now.isoformat(), today, count + 1, message.from_user.id))
         await db.commit()
 
-async def main():
+from aiohttp import web
+
+async def health(request):
+    return web.Response(text="Sollaner Rewards is running")
+
+async def on_startup(app):
     if not TOKEN:
         raise RuntimeError("BOT_TOKEN is missing. Set it in hosting environment variables.")
     await init_db()
     bot = Bot(TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    app["bot"] = bot
+    hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+    if not hostname:
+        raise RuntimeError("RENDER_EXTERNAL_HOSTNAME is missing. Deploy this project as a Render Web Service.")
+    webhook_path = "/telegram-webhook"
+    secret = os.getenv("WEBHOOK_SECRET", "").strip() or None
+    await bot.set_webhook(
+        url=f"https://{hostname}{webhook_path}",
+        secret_token=secret
+    )
+    app["webhook_path"] = webhook_path
+    app["webhook_secret"] = secret
     me = await bot.get_me()
-    logging.info("Starting @%s", me.username)
-    await dp.start_polling(bot)
+    logging.info("Webhook started for @%s at https://%s%s", me.username, hostname, webhook_path)
+
+async def on_shutdown(app):
+    bot = app.get("bot")
+    if bot:
+        await bot.delete_webhook()
+        await bot.session.close()
+
+async def telegram_webhook(request):
+    app = request.app
+    secret = app.get("webhook_secret")
+    if secret and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != secret:
+        raise web.HTTPUnauthorized()
+    try:
+        update = await request.json()
+        from aiogram.types import Update
+        telegram_update = Update.model_validate(update, context={"bot": app["bot"]})
+        await dp.feed_update(app["bot"], telegram_update)
+    except Exception:
+        logging.exception("Failed to process Telegram update")
+        raise web.HTTPBadRequest()
+    return web.Response(text="ok")
+
+def create_app():
+    app = web.Application()
+    app.router.add_get("/", health)
+    app.router.add_post("/telegram-webhook", telegram_webhook)
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+    return app
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    port = int(os.getenv("PORT", "10000"))
+    web.run_app(create_app(), host="0.0.0.0", port=port)
